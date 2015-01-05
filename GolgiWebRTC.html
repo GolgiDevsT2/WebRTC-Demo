@@ -1,0 +1,70 @@
+<!--
+This Software (the "Software") is supplied to you by Openmind Networks
+Limited ("Openmind") your use, installation, modification or
+redistribution of this Software constitutes acceptance of this disclaimer.
+If you do not agree with the terms of this disclaimer, please do not use,
+install, modify or redistribute this Software.
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED ON AN
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER
+EXPRESS OR IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
+CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
+PARTICULAR PURPOSE.
+
+Each user of the Software is solely responsible for determining the
+appropriateness of using and distributing the Software and assumes all
+risks associated with use of the Software, including but not limited to
+the risks and costs of Software errors, compliance with applicable laws,
+damage to or loss of data, programs or equipment, and unavailability or
+interruption of operations.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW OPENMIND SHALL NOT
+HAVE ANY LIABILITY FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, WITHOUT LIMITATION,
+LOST PROFITS, LOSS OF BUSINESS, LOSS OF USE, OR LOSS OF DATA), HOWSOEVER 
+CAUSED UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+WAY OUT OF THE USE OR DISTRIBUTION OF THE SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGES.
+-->
+
+<html>
+<head>
+    <link href="/css/style.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+        <div>
+            <p>
+            This is Golgi's WebRTC demonstration application. From here you can start a peer to peer voice and video chat in 3 easy steps.
+            <ol>
+            <li>Caller click the "Generate Room" button</li>
+            <li>Send the displayed "Room ID" to the callee</li>
+            <li>Callee enter the same Room ID and click "Join Room"</li>
+            </ol>
+            </p>
+        </div>
+        <!-- room id -->
+        <form action="">
+            Room ID: <input type="text" id="room_id" size="20">
+            <br/>
+            <input type="button" value="Generate Room" id="generate_button" onclick="generate_room_id(); return false;">
+            <input type="button" value="Join Room" id="join_button" onclick="join_room(); return false;">
+            <input type="button" value="Leave Room" id="leave_button" onclick="leave_room(); return false;" disabled>
+        </form>
+
+        <!-- videos -->
+        <div>
+            <div style='float:left;'>
+                <video style='border-width: 2px; border-style: solid;' id='local_video' autoplay='autoplay' muted='true'/>
+            </div>
+            <div style='float:left;'>
+                <video style='border-width: 2px; border-style: solid;' id='remote_video' autoplay='autoplay'/>
+            </div>
+        </div>
+<script src="adapter.js"></script>
+<script src="GolgiForBrowser.js"></script>
+<script src="GolgiWebRTC.js"></script>
+<script src="GolgiWebRTC-EP.js"></script>
+</body>
+</html>

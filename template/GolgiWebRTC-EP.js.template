@@ -1,0 +1,599 @@
+//
+// This Software (the "Software") is supplied to you by Openmind Networks
+// Limited ("Openmind") your use, installation, modification or
+// redistribution of this Software constitutes acceptance of this disclaimer.
+// If you do not agree with the terms of this disclaimer, please do not use,
+// install, modify or redistribute this Software.
+//
+// TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED ON AN
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER
+// EXPRESS OR IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
+// CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
+// PARTICULAR PURPOSE.
+//
+// Each user of the Software is solely responsible for determining the
+// appropriateness of using and distributing the Software and assumes all
+// risks associated with use of the Software, including but not limited to
+// the risks and costs of Software errors, compliance with applicable laws,
+// damage to or loss of data, programs or equipment, and unavailability or
+// interruption of operations.
+//
+// TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW OPENMIND SHALL NOT
+// HAVE ANY LIABILITY FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, WITHOUT LIMITATION,
+// LOST PROFITS, LOSS OF BUSINESS, LOSS OF USE, OR LOSS OF DATA), HOWSOEVER 
+// CAUSED UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+// WAY OUT OF THE USE OR DISTRIBUTION OF THE SOFTWARE, EVEN IF ADVISED OF
+// THE POSSIBILITY OF SUCH DAMAGES.
+//
+
+// declare variables
+var initiator = false;
+var pc;
+var pcConfig = {"iceServers": [{"url": "stun:turn.o17g.com"},{"url": "turn:turn.o17g.com","credential": "628U8qW0lb5f33G","username": "3n771h6J0VjfJ1L"}]};
+var pcConstraints = {"optional": []};
+var mediaConstraints = {"audio": true, "video": true};
+var sdpConstraints = {'mandatory': {
+                      'OfferToReceiveAudio': true,
+                      'OfferToReceiveVideo': true }};
+var offerConstraints = {"optional": [], "mandatory": {}};
+var gto = {"EXPIRY":60};
+var remoteVideo;
+var remoteStream;
+var localVideo;
+var localStream;
+var destination;
+var roomIdText;
+var generateButton;
+var joinButton;
+var leaveButton;
+var APP_INSTANCE_ID = null;
+
+var offerProcessed = false;
+var signalStackProcessed = false;
+var signalStack = [];
+
+var haveUserMedia = false;
+var GolgiConnected = false;
+
+main();
+
+// the main function
+function main(){
+
+    // initialise page
+    init();
+
+    // initialise the lib and net
+    GolgiLib.init();
+    GolgiNet.init();
+    GolgiWebRTC.ServiceInit();
+}
+
+// initialise the page
+function init(){
+    // videos
+    remoteVideo = document.getElementById('remote_video');
+    localVideo = document.getElementById('local_video');
+
+    // input fields
+    roomIdText = document.getElementById('room_id');
+    generateButton = document.getElementById('generate_button');
+    joinButton = document.getElementById('join_button');
+    leaveButton = document.getElementById('leave_button');
+}
+
+// create a peer connection object
+function createPeerConnection(){
+
+    try{
+        // Create an RTCPeerConnection via the polyfill (adapter.js).
+        pc = new RTCPeerConnection(pcConfig,pcConstraints);
+        pc.onicecandidate = onIceCandidate;
+        console.log('Created RTCPeerConnnection with:\n' +
+        '  config: \'' + JSON.stringify(pcConfig) + '\';\n' +
+        '  constraints: \'' + JSON.stringify(pcConstraints) + '\'.');
+    } catch(e){
+        console.log(e.message);
+        alert('Cannot create RTCPeerConnection object; WebRTC is not supported by this browser.');
+        return;
+    }
+    pc.onaddstream = onRemoteStreamAdded;
+    pc.onremovestream = onRemoteStreamRemoved;
+    pc.onsignalingstatechange = onSignalingStateChanged;
+    pc.oniceconnectionstatechange = onIceConnectionStateChanged;                                
+}
+
+// callback for adding the remote stream
+function onRemoteStreamAdded(event){
+    console.log("Added remote stream.");
+    attachMediaStream(remoteVideo,event.stream);
+    remoteStream = event.stream;
+    console.log("Attempting to add class for local video rotation");
+    localVideo.classList.add('vactive');
+}
+
+// callback for removing the remote stream
+function onRemoteStreamRemoved(event){
+    console.log("Removed remote stream.");
+}
+
+// callback for signaling state changes
+function onSignalingStateChanged(event){
+}
+
+// call back for ice connection state changes
+function onIceConnectionStateChanged(event){
+}
+
+// send ice candidates to the other end-point
+function onIceCandidate(event){
+    var candToSend;
+    if(event.candidate){
+        console.log("Sending candidate");
+        console.log(event.candidate);
+        var iceCandidate = GolgiWebRTC.iceCandidate();
+        iceCandidate.setLabel(JSON.stringify(event.candidate.sdpMLineIndex));
+        iceCandidate.setId(JSON.stringify(event.candidate.sdpMid));
+        iceCandidate.setCandidate(JSON.stringify(event.candidate.candidate));
+        GolgiWebRTC.GolgiWebRTCSvc.sendIceCandidate({
+            success : function(){
+                console.log("IceCandidate successfully sent");
+            },
+            failWithGolgiException : function(golgiException){
+                console.log("IceCandidate failed: " + golgiException.getErrText());
+            }
+        },
+        destination,
+        gto,
+        iceCandidate);
+    }   
+    else{
+        console.log("End of candidates");
+    }   
+}
+
+// set the RTCPeerConnections remote SDP
+function setRemote(message) {
+    pc.setRemoteDescription(new RTCSessionDescription(message),
+    onSetRemoteDescriptionSuccess, 
+    onSetSessionDescriptionError);
+
+    function onSetRemoteDescriptionSuccess() {
+        console.log("Set remote session description success.");
+        // By now all addstream events for the setRemoteDescription have fired.
+        // So we can know if the peer is sending any stream or is only receiving.
+        if (remoteStream) {
+        console.log("Receiving remote stream");
+        waitForRemoteVideo();
+        } else {
+        console.log("Not receiving any stream.");
+        waitForRemoteVideo();
+        }
+    }
+}
+
+function waitForRemoteVideo(){
+    console.log('Waiting for remote video');
+    if(remoteStream != undefined){
+        videoTracks = remoteStream.getVideoTracks();
+        if(videoTracks.length === 0 || remoteVideo.currentTime > 0){
+            remoteVideo.style.opacity = 1;
+        }
+        else{
+            setTimeout(waitForRemoteVideo, 100);
+        }
+    }
+    else{
+        setTimeout(waitForRemoteVideo, 100);
+    }
+}
+
+// wrapper function for getUserMedia
+function doGetUserMedia(){
+    try{
+        getUserMedia(mediaConstraints,
+        onUserMediaSuccess,
+        onUserMediaError);
+        console.log("Requesting access to user media");
+    }
+    catch(exception){
+        console.log("Unable to getUserMedia " + e.message);
+    }
+}
+
+// success callback for getUserMedia
+function onUserMediaSuccess(stream){
+    console.log('Obtained media stream');
+    attachMediaStream(localVideo,stream);
+    localVideo.style.opacity = 1;
+    localStream = stream;
+    haveUserMedia = true;
+    startCall();
+}
+
+// error callback for getUserMedia
+function onUserMediaError(error){
+    console.log("Failed to acquire local media stream: error code " + error.code);
+    startCall();
+}
+
+// initiate a call with Golgi
+function GolgiWebRTCStartCall(){
+    // set the user's status to busy
+    console.log('Sending busy signal');
+
+    // set the initiator
+    initiator = true;
+
+    // get the user media
+    doGetUserMedia();
+}
+
+function mergeConstraints(cons1, cons2) {
+    var merged = cons1;
+    for (var name in cons2.mandatory) {
+        merged.mandatory[name] = cons2.mandatory[name];
+    }   
+    merged.optional.concat(cons2.optional);
+    return merged;
+}
+
+
+// start the call
+function startCall(){
+    // create the peer connection
+    createPeerConnection();
+
+    // add the local stream
+    pc.addStream(localStream);
+
+    // check if we are initiator 
+    if(initiator){
+        doCall();
+    }
+    else{
+        doCallee();
+    }
+}
+
+// create the call - we are the caller
+function doCall(){
+    console.log('Creating offer');
+    var constraints = mergeConstraints(offerConstraints,sdpConstraints);
+    pc.createOffer(setLocalAndSendMessage,
+    onCreateSessionDescriptionError,
+    constraints);
+}
+
+function onCreateSessionDescriptionError(error) {
+    console.log('Failed to create session description: ' + error.toString());
+}
+
+// receive the call - we are the callee
+function doCallee(){
+    console.log('doCallee');
+    // process messages on the signaling stack
+    processSignalingStack();
+}
+
+// process the signaling stack
+function processSignalingStack(){
+
+    while(signalStack.length > 0){
+        if(!offerProcessed){
+            console.log('processing the offer');
+            // process the offer
+            // set the offer as processed
+            offerProcessed = true;
+
+            // set the remote
+            var offer = signalStack.shift();
+            console.log(JSON.parse(offer.getSdp()));
+            setRemote(JSON.parse(offer.getSdp()));
+
+            // set the destination
+            destination = offer.getSenderId();
+
+            // do answer
+            doAnswer();
+        }
+        else{
+            console.log('Processing ice candidate');
+            // process ice candidates
+            var ICReq = signalStack.shift(); // IceCandidateReq - process in order received
+            GolgiAddCandidate(ICReq);
+        }
+    }
+
+    // signal stack processed
+    signalStackProcessed = true;
+}
+
+function doAnswer() {
+    console.log("Sending answer to peer.");
+    pc.createAnswer(setLocalAndSendMessage,
+                    onCreateSessionDescriptionError,
+                    sdpConstraints);
+}
+
+// add a received ice candidate
+function GolgiAddCandidate(ICReq){
+    var candidate = new RTCIceCandidate({sdpMLineIndex: JSON.parse(ICReq.getLabel()),
+    candidate: JSON.parse(ICReq.getCandidate())});
+    console.log('Adding ice candidate');                                                    
+    pc.addIceCandidate(candidate,
+                       onAddIceCandidateSuccess,
+                       onAddIceCandidateError);
+}
+
+// add ice candidate success callback
+function onAddIceCandidateSuccess(){
+    console.log('Succesfully added an ice candidate');
+}
+
+// add ice candidate fail callback
+function onAddIceCandidateError(error){
+    console.log('Failed to add ice candidate ' + error.toString());
+}
+
+// set the local session description and send it to other destination (caller or callee)
+function setLocalAndSendMessage(sessionDescription){
+    pc.setLocalDescription(sessionDescription,
+                           onSetSessionDescriptionSuccess,
+                           onSetSessionDescriptionError);
+    if(initiator){
+        var offerReq = GolgiWebRTC.offer();
+        offerReq.setSdp(JSON.stringify(sessionDescription));
+        offerReq.setSenderId(APP_INSTANCE_ID);
+        console.log('Sending offer to ' + destination);
+        GolgiWebRTC.GolgiWebRTCSvc.sendOffer({
+            success : function(){
+                console.log('Successfully sent offer');
+            },
+            failWithGolgiException : function(golgiException){
+                console.log('Failed to send offer');
+            }
+        },
+        destination,
+        gto,
+        offerReq);
+    }
+    else{
+        var answerReq = GolgiWebRTC.answer();
+        answerReq.setSdp(JSON.stringify(sessionDescription));
+        GolgiWebRTC.GolgiWebRTCSvc.sendAnswer({
+            success : function(){
+                console.log('Successfully sent answer');
+            },
+            failWithGolgiException : function(golgiException){
+                console.log('Failed to send answer');
+            }
+        },
+        destination,
+        gto,
+        answerReq);
+    }
+}
+
+function onSetSessionDescriptionSuccess() {
+    console.log('Set session description success.');
+}
+
+function onSetSessionDescriptionError(error) {
+    console.log('Failed to set session description: ');
+    console.log(error);
+}
+
+// set the Golgi credentials and register with the Golgi server
+function setGolgiCredentials(){
+    GolgiNet.setCredentials("DEV_KEY", 
+                            "APP_KEY", 
+                            APP_INSTANCE_ID);
+    console.log('Set Golgi Credentials to ' + APP_INSTANCE_ID);
+    registerWithGolgi();
+}
+
+// register with Golgi server
+function registerWithGolgi(){
+    GolgiNet.register(function(err){
+        if(err != undefined){
+            console.log("Failed to register");
+        }
+        else{
+            console.log("Successfully registered");
+            GolgiConnected = true;
+        }
+    });
+}
+
+// function's for creating guid's
+function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+    .toString(16)
+    .substring(1);
+}
+
+// wait for Golgi to register before proceeding
+function waitForGolgiConnectedGenerateRoom(){
+    if(GolgiConnected){
+        // generate a room id and set the room id field
+        roomIdText.value = APP_INSTANCE_ID;
+        // disable the room id field
+        roomIdText.disabled = true;
+    }
+    else{
+        console.log('waitForGolgiConnectedGenerateRoom');
+        setTimeout(waitForGolgiConnectedGenerateRoom,100);
+    }
+}
+
+// generate a room id
+function generate_room_id(){
+
+    // flipButtons
+    flipButtons();
+
+    // set the APP_INSTANCE_ID
+    APP_INSTANCE_ID = s4();
+
+    // initialise GolgiWebRTC
+    GolgiWebRTCInit();
+
+    console.log('Successfully initialised with GolgiWebRTCInit');
+
+    waitForGolgiConnectedGenerateRoom();
+}
+
+// wait for Golgi to register before proceeding
+function waitForGolgiConnectedJoinRoom(){
+    if(GolgiConnected){
+        console.log('Attempting to join room');
+        destination = roomIdText.value;
+        GolgiWebRTCStartCall();
+    }
+    else{
+        console.log('waitForGolgiConnectedJoinRoom');
+        setTimeout(waitForGolgiConnectedJoinRoom,100);
+    }
+}
+
+function flipButtons(){
+    joinButton.disabled = !joinButton.disabled;
+    generateButton.disabled = !generateButton.disabled;
+    leaveButton.disabled = !leaveButton.disabled;
+}
+
+// join a room
+function join_room(){
+
+    // flip buttons
+    flipButtons();
+
+    // set an APP_INSTANCE_ID
+    APP_INSTANCE_ID = s4();
+
+    // initialise GolgiWebRTC
+    GolgiWebRTCInit();
+    console.log('Successfully initialised with GolgiWebRTCInit');
+
+    waitForGolgiConnectedJoinRoom();
+}
+
+// stop all streams and video, teardown pc
+function stopAll(){
+    // reassign the room id text value
+    roomIdText.value = '';
+    roomIdText.disabled = false;
+
+    // remove videos
+    localVideo.style.opacity = 0;
+    remoteVideo.style.opacity = 0;
+
+    // stop the local stream
+    localStream.stop();
+
+    // close the peer connection
+    pc.close();pc=null;
+
+    // null the remote stream
+    remoteStream = null;
+
+    // reset signal stack processed
+    signalStackProcessed = false;
+
+    // reset the initiator
+    initiator = false;
+
+    // reset offer processed
+    offerProcessed = false;
+}
+
+// leave room function
+function leave_room(){
+
+    localVideo.classList.remove('vactive');
+
+    // flip the buttons
+    flipButtons();
+
+    // remove all video
+    stopAll();
+
+    // signal the end of the call
+    GolgiWebRTC.GolgiWebRTCSvc.endCall({
+        success : function(){
+            // call successfully ended
+            console.log('Call successfully ended');
+        },
+        failWithGolgiError : function(golgiException){
+            }
+    },
+    destination,
+    gto,
+    roomIdText.value);
+}
+
+// initialise GolgiWebRTC
+function GolgiWebRTCInit(){
+
+    if(GolgiConnected){
+        return;
+    }
+
+    // set a request handler for offer
+    GolgiWebRTC.GolgiWebRTCSvc.registerSendOfferHandler(function(resultHandler,offerRequest){
+        console.log('Received an offer');
+
+        // send success
+        resultHandler.success();
+
+        // add the offer to the start of the signaling stack
+        signalStack.unshift(offerRequest);
+
+        // get the user media
+        doGetUserMedia();
+    });
+    // set a request handler for answer
+    GolgiWebRTC.GolgiWebRTCSvc.registerSendAnswerHandler(function(resultHandler,answerRequest){
+        console.log('Received answer');
+
+        // send success
+        resultHandler.success();
+
+        // set the remote
+        console.log(JSON.parse(answerRequest.getSdp()));
+        setRemote(JSON.parse(answerRequest.getSdp()));
+    });
+    // set a request handler for ice candidates
+    GolgiWebRTC.GolgiWebRTCSvc.registerSendIceCandidateHandler(function(resultHandler,iceCandidateRequest){
+        // send success
+        resultHandler.success();
+
+        // check if the signal stack has been processed
+        if(!signalStackProcessed && !initiator){
+            // add the offer to the end of the signaling stack
+            signalStack.push(iceCandidateRequest);
+        }
+        else{
+            // signal stack has already been processed add manually
+            GolgiAddCandidate(iceCandidateRequest);
+        }
+    });
+
+    // register a endCall callback
+    GolgiWebRTC.GolgiWebRTCSvc.registerEndCallHandler(function(resultHandler,roomId){
+        // send the success
+        resultHandler.success();
+
+        // flip buttons
+        flipButtons();
+
+        // stop all
+        stopAll();
+    });
+
+    // set the Golgi credentials
+    setGolgiCredentials();
+}
