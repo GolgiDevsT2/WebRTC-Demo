@@ -30,8 +30,8 @@
 
 all:check_all
 	cp template/GolgiWebRTC-EP.js.template /tmp
-	sed -i.bak s/DEV_KEY/$(shell (cat Golgi.DevKey | tr -d ' '))/g /tmp/GolgiWebRTC-EP.js.template
-	sed -i.bak s/APP_KEY/$(shell (cat Golgi.AppKey | tr -d ' '))/g /tmp/GolgiWebRTC-EP.js.template
+	sed -i.bak s/DEV_KEY/$(shell (cat Golgi.DevKey | tr -d ' \r\n'))/g /tmp/GolgiWebRTC-EP.js.template
+	sed -i.bak s/APP_KEY/$(shell (cat Golgi.AppKey | tr -d ' \r\n'))/g /tmp/GolgiWebRTC-EP.js.template
 	mv /tmp/GolgiWebRTC-EP.js.template GolgiWebRTC-EP.js
 	java -classpath ~/Golgi-Pkg/LATEST/common/garrick_combined.jar com.openmindnetworks.golgi.garrick.Garrick -i GolgiWebRTC.thrift -jsf ./GolgiWebRTC.js
 
