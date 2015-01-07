@@ -38,7 +38,7 @@ all:check_all
 check_all:
 	@if [ ! -d ~/Golgi-Pkg ]; then \
 		echo "Makefile expects Golgi SDK to be installed at ~/Golgi-Pkg"; \
-		echo "Signup at https://devs.golgi.io and download the SDK"; \
+		echo "Login at https://devs.golgi.io and download the SDK"; \
                 exit 2; \
 	fi
 	@if [ ! -f Golgi.DevKey ]; then \
