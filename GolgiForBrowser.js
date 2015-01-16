@@ -1,37 +1,40 @@
-//
-// This Software (the "Software") is supplied to you by Openmind Networks
-// Limited ("Openmind") your use, installation, modification or
-// redistribution of this Software constitutes acceptance of this disclaimer.
-// If you do not agree with the terms of this disclaimer, please do not use,
-// install, modify or redistribute this Software.
-//
-// TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE SOFTWARE IS PROVIDED ON AN
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER
-// EXPRESS OR IMPLIED INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR
-// CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A
-// PARTICULAR PURPOSE.
-//
-// Each user of the Software is solely responsible for determining the
-// appropriateness of using and distributing the Software and assumes all
-// risks associated with use of the Software, including but not limited to
-// the risks and costs of Software errors, compliance with applicable laws,
-// damage to or loss of data, programs or equipment, and unavailability or
-// interruption of operations.
-//
-// TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW OPENMIND SHALL NOT
-// HAVE ANY LIABILITY FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, WITHOUT LIMITATION,
-// LOST PROFITS, LOSS OF BUSINESS, LOSS OF USE, OR LOSS OF DATA), HOWSOEVER 
-// CAUSED UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-// LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-// WAY OUT OF THE USE OR DISTRIBUTION OF THE SOFTWARE, EVEN IF ADVISED OF
-// THE POSSIBILITY OF SUCH DAMAGES.
-//
+
+var __GolgiCryptoImpl = undefined;
+
 
 var GolgiLib = {
+		
 	init : function(){
 		// Not implemented "properly" yet
+		__GolgiCryptoImpl = null;
 	},
+	
+	createCryptoError : function(errText){
+		var _inst = {};
+		_inst.errText = errText;
+		return _inst;
+	},
+	
+	createHardCryptoError: function(errText){
+		var err = GolgiLib.createCryptoError(errText);
+		err.isHardError = true;
+		return err;
+	},
+	
+	createSoftCryptoError: function(errText){
+		var err = GolgiLib.createCryptoError(errText);
+		err.isHardError = false;
+		return err;
+	},
+	
+	getCryptoImpl : function(){
+		return __GolgiCryptoImpl;
+	},
+	
+	setCryptoImpl : function(newImpl){
+		__GolgiCryptoImpl = newImpl;
+	},
+	
 	escapeString : function(str){
 		var result = "";
         for ( var i = 0; i < str.length; i++ ){
@@ -463,6 +466,9 @@ var GolgiLib = {
     	_inst.payload = "";
     	_inst.options = undefined;
     	
+    	_inst.dupe = function(){
+    		return Object.create(_inst);
+    	}
     	
     	_inst.serialise = function(){
     		var str = "";
@@ -644,6 +650,9 @@ ciphertext is incorrectly decoded.
 
 var Blowfish = function(){
 	var _inst = {};
+	
+	_inst.encCount = 0;
+	_inst.decCount = 0;
 	
 	_inst.Fbf_P=function(){
 		return [
@@ -980,6 +989,7 @@ var Blowfish = function(){
 	};
 	
 	_inst.encrypt=function(dst, t){
+		_inst.encCount++;
 		var extra = 8 - (t.length % 8);
 		if(extra == 8){
 			extra = 0;
@@ -988,19 +998,20 @@ var Blowfish = function(){
 		for(var i = 0;i < (t.length % 16); i++){
 			t += '0';
 		}
-		console.log("Escaped: '" + t + "'");
+		// console.log("Escaped: '" + t + "'");
 		var r= '' + extra;
 		for(var i = 0; i < t.length; i += 16){
 			_inst.xl_par = _inst.wordunescape(t.substr(i,8));
 			_inst.xr_par = _inst.wordunescape(t.substr(i+8,8));
-			console.log("" +  _inst.xl_par.toString(16) + " : " + _inst.xr_par.toString(16));
+			// console.log("" +  _inst.xl_par.toString(16) + " : " + _inst.xr_par.toString(16));
 			_inst.encipher();
 			r += _inst.wordescape(_inst.xr_par) + _inst.wordescape(_inst.xl_par);
 		}
-		console.log("CYPHERTEXT: " +  r);
+		// console.log("CYPHERTEXT: " +  r);
 		return r;
 	};
 	_inst.decrypt=function(src, t){
+		_inst.decCount++;
 		t = t.toUpperCase();
 		var extra = t.charCodeAt(0) - 48;		
 		t = t.substr(1);
@@ -1065,7 +1076,7 @@ var Blowfish = function(){
 			}
 			r = r*256 + (t1*16+ t2);
 		}
-		console.log("T: '" + t + "' becomes: " + r.toString(16));
+		// console.log("T: '" + t + "' becomes: " + r.toString(16));
 		return r;
 	};
 
@@ -1254,7 +1265,7 @@ var Blowfish = function(){
 	
 		_inst.key = (kStr.length>56)?kStr.substr(0,56):kStr;
 	
-		console.log("Key: '" + _inst.key + "'");
+		// console.log("Key: '" + _inst.key + "'");
 		var k = 0;
 		for(var i = 0; i < 18; i++){
 			var d = 0;
@@ -1267,10 +1278,10 @@ var Blowfish = function(){
 				}
 			}
 			
-			console.log("[" + i + "]: " + d.toString(16));
-			console.log("00000000: " + (_inst.xor(0,d)).toString(16));
-			console.log("FFFFFFFF: " + (_inst.xor(0xffffffff,d)).toString(16));
-			console.log("        : " + (_inst.xor(d,d)).toString(16));
+			// console.log("[" + i + "]: " + d.toString(16));
+			// console.log("00000000: " + (_inst.xor(0,d)).toString(16));
+			// console.log("FFFFFFFF: " + (_inst.xor(0xffffffff,d)).toString(16));
+			// console.log("        : " + (_inst.xor(d,d)).toString(16));
 			
 			_inst.bf_P[i] = _inst.xor(_inst.bf_P[i],d);
 		}
@@ -1316,6 +1327,10 @@ var Blowfish = function(){
 			devKey = _devKey;
 			appKey = _appKey;
 			instId = _instId;
+		};
+		
+		var reconnect = function(host){
+		    
 		};
 		
 		var NTLConn = function(){
@@ -1576,51 +1591,81 @@ var Blowfish = function(){
 			}
 			return "" + (idNext++) + idBase;
 		};
+		
+		var regCb = undefined;
+		var svrHost = undefined;
+		
+		_inst.bannerCb = function(rc, rcStr){
+		    // console.log("Banner(1): " + rc + "'" + rcStr + "'");
+		    if(rc >= 200 && rc <= 399){
+			ntlConn.startNops();
 
+			var payload = "";
+			payload += "dev_key: \"" + GolgiLib.escapeString(devKey) + "\"\n";
+			payload += "api_key: \"" + GolgiLib.escapeString(appKey) + "\"\n";
+			payload += "app_user_id: \"" + GolgiLib.escapeString(instId) + "\"\n";
+			payload += "push_id: \"\"\n";
+			payload += "device_type: 0\n";
+			ntlConn.sendNtlReq(function(rc, rcStr, payload){
+			    if(rc >= 200 && rc <= 399){
+				//
+				// Successful register
+				//	
+				if(regCb != undefined){
+				    regCb();
+				    regCb = undefined;
+				}
+			    }
+			    else{
+				console.log("Register returned: " + rc + "/" + rcStr);
+				if(regCb != undefined){
+				    regCb("Failed: " + rc + "/" + rcStr);
+				    regCb = undefined;
+				}
+			    }
+			}, "golgi_register", payload);
+		    }
+		};
+		
+		_inst.closedCb = function(){
+		    // Closed
+		    console.log("***************************************");
+		    console.log("***************************************");
+		    console.log("Closed");
+		    console.log("***************************************");
+		    console.log("***************************************");
+		    ntlConn.connect(svrHost, 443, _inst.bannerCb, _inst.closedCb);
+		};
 
 		_inst.register = function(_regCb){
-			ntlConn = NTLConn();
-
-			ntlConn.registerCmd("golgi_send_msg", inboundGolgiSendMsg);
-			
-			var host = "gp.o17g.com";
-			
-			if(golgiOptions["USE_TEST_SERVER"] != undefined){
-				if(golgiOptions["USE_TEST_SERVER"] == 1){
-					host = "gt.o17g.com";
-					// console.log("Connecting to the test server: " + host);
+		    	regCb = _regCb;
+		    
+		    	_inst.useLoopback = false;
+		    	if(golgiOptions["LOOPBACK"] != undefined){
+				if(golgiOptions["LOOPBACK"] == 1){
+					_inst.useLoopback = true;
 				}
 			}
 			
-			ntlConn.connect(host, 443,
-					function(rc, rcStr){ // Banner
-				// console.log("Banner(1): " + rc + "'" + rcStr + "'");
-				if(rc >= 200 && rc <= 399){
-					ntlConn.startNops();
+			if(_inst.useLoopback){
+				regCb();
+			}
+			else{
+				ntlConn = NTLConn();
 
-					var payload = "";
-					payload += "dev_key: \"" + GolgiLib.escapeString(devKey) + "\"\n";
-					payload += "api_key: \"" + GolgiLib.escapeString(appKey) + "\"\n";
-					payload += "app_user_id: \"" + GolgiLib.escapeString(instId) + "\"\n";
-					payload += "push_id: \"\"\n";
-					payload += "device_type: 0\n";
-					ntlConn.sendNtlReq(function(rc, rcStr, payload){
-						if(rc >= 200 && rc <= 399){
-							//
-							// Successful register
-							//
-							_regCb();
-						}
-						else{
-							console.log("Register returned: " + rc + "/" + rcStr);
-							_regCb("Failed: " + rc + "/" + rcStr);
-						}
-					}, "golgi_register", payload);
+				ntlConn.registerCmd("golgi_send_msg", _inst.inboundGolgiSendMsg);
+			
+				svrHost = "gp.o17g.com";
+			
+				if(golgiOptions["USE_TEST_SERVER"] != undefined){
+					if(golgiOptions["USE_TEST_SERVER"] == 1){
+						svrHost = "gt.o17g.com";
+						// console.log("Connecting to the test server: " + host);
+					}	
 				}
-			},
-			function(){ // Closed
-				console.log("Closed");
-			});
+			
+				ntlConn.connect(svrHost, 443, _inst.bannerCb, _inst.closedCb);
+			}
 		};
 		
 		_inst.registerGolgiMessageHandler = function(key, cb){
@@ -1628,37 +1673,146 @@ var Blowfish = function(){
 			ibgHash[key] = cb;
 		};
 		
-		var inboundGolgiSendMsg = function(ntlCb, payload){
+		
+		_inst.inboundGolgiSendMsg = function(ntlCb, payload, gMsg){
 			// console.log("Received 'golgi_send_msg': " + payload);
-			gMsg = GolgiLib.GolgiMessage();
-			if(gMsg.deserialise(payload) == 0){
+			var cryptoErrTxt = undefined;
+			var cryptoErrMsg = undefined;
+			var corrupt = false;
+			
+			if(gMsg == undefined){
+				gMsg = GolgiLib.GolgiMessage();
+				if(gMsg.deserialise(payload) != 0){
+					corrupt = true;
+				}
+			}
+			
+			if(!corrupt){
+			
 				// console.log("Yayyy, decoded message");
+				
+				//
+				// Check if the payload starts with "{E}", if
+				// it does, then call the crypto implementation
+				// (which had better be there) to decrypt
+				// the payload
+				//
+				// console.log("Payload: " + gMsg.payload);
+				if(gMsg.payload.indexOf("{E}") == 0){
+					var cryptoImpl = GolgiLib.getCryptoImpl();
+					if(cryptoImpl == undefined){
+						//
+						// An encrypted message has arrived, but we have no crypto implementation! 
+						//
+						
+						cryptoErrTxt = "Receiver doesn't support encryption";
+					}
+					else{
+						try{
+							// console.log("************** DECRYPT *****************");
+							// console.log("Payload: " + gMsg.payload);
+							gMsg.payload = cryptoImpl.decrypt(gMsg.oa_app_user_id, gMsg.payload.substr(3));
+ 							// console.log("Payload: " + gMsg.payload);
+						}
+						catch(cryptoErr){
+							//
+							// At this point it doesn't matter what type of error this is (hard or soft)
+							// we are stuffed and need to send back an exception
+							//
+							
+							cryptoErrTxt = cryptoErr.errText;
+						}
+					}
+				}
+				
+				if(cryptoErrTxt != undefined){
+
+					cryptoErrMsg = GolgiLib.GolgiMessage();
+					if(gMsg.msg_type == 0){ // REQ
+						//
+						// For a garbled REQ, we create a RES with an 
+						// error and send it back to the originator
+						// (reversed oa and da)
+						//
+						cryptoErrMsg.oa_app_user_id = gMsg.da_app_user_id;
+						cryptoErrMsg.da_app_user_id = gMsg.oa_app_user_id;
+					}
+					else{
+						//
+						// For a garbled RES, we ACK the res and send an
+						// error RES on to the local handler (same oa and da)
+						cryptoErrMsg.oa_app_user_id = gMsg.oa_app_user_id;
+						cryptoErrMsg.da_app_user_id = gMsg.da_app_user_id;
+					}
+					cryptoErrMsg.message_id = gMsg.message_id;
+					cryptoErrMsg.msg_type = 2; // ERR
+					cryptoErrMsg.method = gMsg.method;
+					cryptoErrMsg.err_type = -1;
+					cryptoErrMsg.err_txt = cryptoErrTxt;
+					
+				}
+				
 				if(gMsg.msg_type == 0){ // A Req
 					// console.log("It's a REQ");
-					gcb = ibgHash[gMsg.method];
-					if(gcb != undefined){
-						// console.log("We have a handler for '" + gMsg.method + "'");
-						gcb(ntlCb, gMsg);
+					
+					if(cryptoErrMsg != undefined){
+						if(_inst.useLoopback){
+							_inst.inboundGolgiSendMsg(undefined, undefined, cryptoErrMsg);
+							if(ntlCb != undefined){
+								ntlCb.success(200, "Yumm");
+							}
+						}
+						else{
+							ntlConn.sendNtlReq(function(rc, rcStr, payload){
+								if(rc >= 200 && rc <= 399){
+									//
+									// Successfully sent the ERR res,
+									// eat the REQ
+									//	
+									ntlCb.success(200, "Yumm");
+								}
+								else{
+									//
+									// Failed to send the ERR res,
+									// fail the REQ
+									//
+									console.log("Sending error message: " + rc + "/" + rcStr);
+									ntlCb.fail(rc, rcStr);
+								}
+							}, "golgi_send_msg", errMsg.serialise());
+						}
+						return;
 					}
 					else{
-						console.log("No handler for '" + gMsg.method + "'");
-						ntlCb(498, "NoHandler");
+						gcb = ibgHash[gMsg.method];
+						if(gcb != undefined){
+							// console.log("We have a handler for '" + gMsg.method + "'");
+							gcb(ntlCb, gMsg);
+						}
+						else{
+							console.log("No handler for '" + gMsg.method + "'");
+							ntlCb(498, "NoHandler");
+						}
 					}
 				}
-				else if(gMsg.msg_type == 1){ // A Res
-					// console.log("It's a RES");
+				else if(gMsg.msg_type == 1 || gMsg.msg_type == 2){ // A RES or an ERR
+					// console.log("It's a RES/ERR: " + gMag.msg_type);
 					var golgiCb = obgHash[gMsg.message_id];
 					if(golgiCb != undefined){
-						golgiCb.resArrived(gMsg);
 						obgHash[gMsg.message_id] = undefined;
+						if(cryptoErrMsg != undefined){
+							golgiCb.errArrived(cryptoErrMsg.err_type, cryptoErrMsg.err_txt);
+						}
+						else if(gMsg.msg_type == 1){
+							golgiCb.resArrived(gMsg);
+						}
+						else{
+							golgiCb.errArrived(gMsg.err_type, gMsg.err_txt);
+						}
 					}
 					else{
-						console.log("Eating RES for '" + gMsg.message_id + "' for command: " + gMsg.method);
+						console.log("Eating RES/ERR for '" + gMsg.message_id + "' for command: " + gMsg.method);
 					}
-					ntlCb(300, "Yum");
-				}
-				else if(gMsg.msg_type == 2){ // An Error
-					console.log("It's an Error");
 					ntlCb(300, "Yum");
 				}
 				else{
@@ -1678,7 +1832,6 @@ var Blowfish = function(){
 		_inst.sendReq = function(golgiCb, ntlCb, cmd, dst, options, arg){
 			var msgId = _inst.genMsgId();
 
-			obgHash[msgId] = golgiCb;
 
 			var gMsg = GolgiLib.GolgiMessage();
 
@@ -1693,17 +1846,65 @@ var Blowfish = function(){
 			gMsg.err_txt = "";
 			gMsg.payload = arg.serialise();
 			gMsg.options = options;
+			
+			//
+			// Insert crypto here to encrypt the payload
+			//
+			var cryptoImpl = GolgiLib.getCryptoImpl();
+			var cryptoErrMsg = undefined;
+			if(cryptoImpl != undefined){
+ 				try{
+					// console.log("************** ENCRYPT *****************");
+					gMsg.payload = "{E}" + cryptoImpl.encrypt(gMsg.da_app_user_id, gMsg.payload);
+				}
+				catch(cryptoErr){
+					if(cryptoErr.isHardError){
+						// console.log("Hard Error: " + cryptoErr);
+						cryptoErrMsg = GolgiLib.GolgiMessage();
+						cryptoErrMsg.oa_app_user_id = gMsg.da_app_user_id;
+						cryptoErrMsg.da_app_user_id = gMsg.oa_app_user_id;
 
-			ntlConn.sendNtlReq(function(rc, rcStr, payload){
-				if(rc >= 400){
-					console.log("Sending message: " + rc + "/" + rcStr);
-					obgHash[msgId] = undefined;
-					ntlCb.fail(rc, rcStr);
+						cryptoErrMsg.message_id = gMsg.message_id;
+						cryptoErrMsg.msg_type = 2; // ERR
+						cryptoErrMsg.method = gMsg.method;
+						cryptoErrMsg.err_type = -1;
+						cryptoErrMsg.err_txt = cryptoErr.errText;
+					}
+					else{
+						//
+						// Soft error, let it go
+						//
+						console.log("Soft Error: " + cryptoErr);
+					}
+				}
+			}
+			
+			// console.log("Payload(2): " + gMsg.payload);
+			
+			if(cryptoErrMsg){
+				golgiCb.errArrived(cryptoErrMsg.err_type, cryptoErrMsg.err_txt);
+			}
+			else{
+				obgHash[msgId] = golgiCb;
+				if(_inst.useLoopback){
+					_inst.inboundGolgiSendMsg(undefined, undefined, gMsg);
+					if(ntlCb != undefined){
+						ntlCb.success(200, "Yumm");
+					}
 				}
 				else{
-					ntlCb.success(rc, rcStr);
+					ntlConn.sendNtlReq(function(rc, rcStr, payload){
+						if(rc >= 400){
+							console.log("Sending message: " + rc + "/" + rcStr);
+							obgHash[msgId] = undefined;
+							ntlCb.fail(rc, rcStr);
+						}
+						else{
+							ntlCb.success(rc, rcStr);
+						}
+					}, "golgi_send_msg", gMsg.serialise());
 				}
-			}, "golgi_send_msg", gMsg.serialise());
+			}
 		};
 		
 		_inst.sendRes = function(ntlCb, msgId, cmd, dst, options, arg){
@@ -1726,15 +1927,23 @@ var Blowfish = function(){
 			
 			// console.log("Gonna send: " + gMsg.serialise());
 
-			ntlConn.sendNtlReq(function(rc, rcStr, payload){
-				if(rc >= 200 && rc <= 399){
-					ntlCb.success(rc, rcStr);
+			if(_inst.useLoopback){
+				_inst.inboundGolgiSendMsg(undefined, undefined, gMsg);
+				if(ntlCb != undefined){
+					ntlCb.success(200, "Yumm");
 				}
-				else{
-					console.log("Sending message: " + rc + "/" + rcStr);
-					ntlCb.fail(rc, rcStr);
-				}
-			}, "golgi_send_msg", gMsg.serialise());
+			}
+			else{
+				ntlConn.sendNtlReq(function(rc, rcStr, payload){
+					if(rc >= 200 && rc <= 399){
+						ntlCb.success(rc, rcStr);
+					}
+					else{
+						console.log("Sending message: " + rc + "/" + rcStr);
+						ntlCb.fail(rc, rcStr);
+					}
+				}, "golgi_send_msg", gMsg.serialise());
+			}
 		};
 		
 
@@ -1780,6 +1989,11 @@ var GolgiApi = {
         var _inst = {};
         if(isSetDefault == undefined) isSetDefault = true;
         var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = GolgiApi.GolgiException();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
         _inst.isCorrupt = function(){
             return _corrupt;
         }
@@ -1846,6 +2060,481 @@ var GolgiApi = {
         return _inst;
     },
 };
+/* IS_AUTOGENERATED_SO_ALLOW_AUTODELETE=YES */
+/* The previous line is to allow auto deletion */
+
+var SimpleString = {
+    SSArg : function(isSetDefault) {
+        var _inst = {};
+        if(isSetDefault == undefined) isSetDefault = true;
+        var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = SimpleString.SSArg();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
+        _inst.isCorrupt = function(){
+            return _corrupt;
+        }
+        var strIsSet = false;
+        var str = "";
+        _inst.getStr = function(){
+            return str;
+        }
+        _inst.strIsSet = function(){
+            return strIsSet;
+        }
+        _inst.setStr = function(_value){
+            str = _value;
+            strIsSet = true;
+        }
+        _inst.serialise = function(prefix, sb){
+            if(prefix == undefined) prefix = "";
+            if(sb == undefined) sb = "";
+            if(strIsSet){
+                sb = sb + GolgiLib.encodeString(prefix + "1", str);
+            }
+            return sb;
+        }
+        _inst.deserialise = function(payload){
+            var l = payload.getLineForKey("1");
+            if(l == undefined) corrupt = true;
+            if(l != undefined){
+                str = GolgiLib.decodeString(l);
+                if(str != undefined){
+                    strIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+        }
+        strIsSet = isSetDefault;
+        return _inst;
+    },
+    SSResult : function(isSetDefault) {
+        var _inst = {};
+        if(isSetDefault == undefined) isSetDefault = true;
+        var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = SimpleString.SSResult();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
+        _inst.isCorrupt = function(){
+            return _corrupt;
+        }
+        var strIsSet = false;
+        var str = "";
+        _inst.getStr = function(){
+            return str;
+        }
+        _inst.strIsSet = function(){
+            return strIsSet;
+        }
+        _inst.setStr = function(_value){
+            str = _value;
+            strIsSet = true;
+        }
+        _inst.serialise = function(prefix, sb){
+            if(prefix == undefined) prefix = "";
+            if(sb == undefined) sb = "";
+            if(strIsSet){
+                sb = sb + GolgiLib.encodeString(prefix + "1", str);
+            }
+            return sb;
+        }
+        _inst.deserialise = function(payload){
+            var l = payload.getLineForKey("1");
+            if(l == undefined) corrupt = true;
+            if(l != undefined){
+                str = GolgiLib.decodeString(l);
+                if(str != undefined){
+                    strIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+        }
+        strIsSet = isSetDefault;
+        return _inst;
+    },
+    SimpleStringException : function(isSetDefault) {
+        var _inst = {};
+        if(isSetDefault == undefined) isSetDefault = true;
+        var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = SimpleString.SimpleStringException();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
+        _inst.isCorrupt = function(){
+            return _corrupt;
+        }
+        var errorTextIsSet = false;
+        var errorText = "";
+        _inst.getErrorText = function(){
+            return errorText;
+        }
+        _inst.errorTextIsSet = function(){
+            return errorTextIsSet;
+        }
+        _inst.setErrorText = function(_value){
+            errorText = _value;
+            errorTextIsSet = true;
+        }
+        _inst.serialise = function(prefix, sb){
+            if(prefix == undefined) prefix = "";
+            if(sb == undefined) sb = "";
+            if(errorTextIsSet){
+                sb = sb + GolgiLib.encodeString(prefix + "1", errorText);
+            }
+            return sb;
+        }
+        _inst.deserialise = function(payload){
+            var l = payload.getLineForKey("1");
+            if(l != undefined){
+                errorText = GolgiLib.decodeString(l);
+                if(errorText != undefined){
+                    errorTextIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+        }
+        errorTextIsSet = isSetDefault;
+        return _inst;
+    },
+    SimpleString_sendString_reqArg : function(isSetDefault) {
+        var _inst = {};
+        if(isSetDefault == undefined) isSetDefault = true;
+        var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = SimpleString.SimpleString_sendString_reqArg();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
+        _inst.isCorrupt = function(){
+            return _corrupt;
+        }
+        var argIsSet = false;
+        var arg = SimpleString.SSArg(isSetDefault);
+        _inst.getArg = function(){
+            return arg;
+        }
+        _inst.argIsSet = function(){
+            return argIsSet;
+        }
+        _inst.setArg = function(_value){
+            arg = _value;
+            argIsSet = true;
+        }
+        _inst.serialise = function(prefix, sb){
+            if(prefix == undefined) prefix = "";
+            if(sb == undefined) sb = "";
+            if(argIsSet){
+                sb = arg.serialise(prefix + "1." , sb);
+            }
+            return sb;
+        }
+        _inst.deserialise = function(payload){
+            var np = payload.getNestedForKey("1");
+            if(np == undefined) corrupt = true;
+            if(np != undefined){
+                arg = SimpleString.SSArg(false);
+                arg.deserialise(np);
+                if(!arg.isCorrupt()){
+                    argIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+        }
+        argIsSet = isSetDefault;
+        return _inst;
+    },
+    SimpleString_sendString_rspArg : function(isSetDefault) {
+        var _inst = {};
+        if(isSetDefault == undefined) isSetDefault = true;
+        var _corrupt = false;
+        _inst.dupe = function(){
+            var dupedInst = SimpleString.SimpleString_sendString_rspArg();
+            dupedInst.deserialise(GolgiLib.Payload(_inst.serialise()));
+            return dupedInst;
+        }
+        _inst.isCorrupt = function(){
+            return _corrupt;
+        }
+        var internalSuccess_IsSet = false;
+        var internalSuccess_ = 0;
+        var resultIsSet = false;
+        var result = SimpleString.SSResult(isSetDefault);
+        var golgiExceptionIsSet = false;
+        var golgiException = GolgiApi.GolgiException(isSetDefault);
+        var sseIsSet = false;
+        var sse = SimpleString.SimpleStringException(isSetDefault);
+        _inst.getInternalSuccess_ = function(){
+            return internalSuccess_;
+        }
+        _inst.internalSuccess_IsSet = function(){
+            return internalSuccess_IsSet;
+        }
+        _inst.setInternalSuccess_ = function(_value){
+            internalSuccess_ = _value;
+            internalSuccess_IsSet = true;
+        }
+        _inst.getResult = function(){
+            return result;
+        }
+        _inst.resultIsSet = function(){
+            return resultIsSet;
+        }
+        _inst.setResult = function(_value){
+            result = _value;
+            resultIsSet = true;
+        }
+        _inst.getGolgiException = function(){
+            return golgiException;
+        }
+        _inst.golgiExceptionIsSet = function(){
+            return golgiExceptionIsSet;
+        }
+        _inst.setGolgiException = function(_value){
+            golgiException = _value;
+            golgiExceptionIsSet = true;
+        }
+        _inst.getSse = function(){
+            return sse;
+        }
+        _inst.sseIsSet = function(){
+            return sseIsSet;
+        }
+        _inst.setSse = function(_value){
+            sse = _value;
+            sseIsSet = true;
+        }
+        _inst.serialise = function(prefix, sb){
+            if(prefix == undefined) prefix = "";
+            if(sb == undefined) sb = "";
+            if(internalSuccess_IsSet){
+                sb = sb + prefix + "1: " + internalSuccess_+"\n";
+            }
+            if(resultIsSet){
+                sb = result.serialise(prefix + "2." , sb);
+            }
+            if(golgiExceptionIsSet){
+                sb = golgiException.serialise(prefix + "3." , sb);
+            }
+            if(sseIsSet){
+                sb = sse.serialise(prefix + "4." , sb);
+            }
+            return sb;
+        }
+        _inst.deserialise = function(payload){
+            var l = payload.getLineForKey("1");
+            if(l != undefined){
+                internalSuccess_ = parseInt(l);
+                if(internalSuccess_ != NaN){
+                    internalSuccess_IsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+            var np = payload.getNestedForKey("2");
+            if(np != undefined){
+                result = SimpleString.SSResult(false);
+                result.deserialise(np);
+                if(!result.isCorrupt()){
+                    resultIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+            var np = payload.getNestedForKey("3");
+            if(np != undefined){
+                golgiException = GolgiApi.GolgiException(false);
+                golgiException.deserialise(np);
+                if(!golgiException.isCorrupt()){
+                    golgiExceptionIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+            var np = payload.getNestedForKey("4");
+            if(np != undefined){
+                sse = SimpleString.SimpleStringException(false);
+                sse.deserialise(np);
+                if(!sse.isCorrupt()){
+                    sseIsSet = true;
+                }
+                else{
+                    _corrupt = true;
+                }
+            }
+        }
+        internalSuccess_IsSet = isSetDefault;
+        internalSuccess_ = 0;
+        resultIsSet = isSetDefault;
+        golgiExceptionIsSet = isSetDefault;
+        sseIsSet = isSetDefault;
+        return _inst;
+    },
+    ServiceInit : function(){
+        var _SimpleStringSvc = function(){
+            var _inst = {};
+            _inst.userLandHash = {};
+            //
+            //
+            // Add code for sendString
+            //
+            //
+            _inst.registerSendStringHandler = function(cb){
+                _inst.userLandHash["sendString"] = cb;
+            };
+            _inst.sendStringResCb = function(arg){
+                console.log("Ok, sendStringResCB called");
+            };
+            _inst.sendStringResNtlCb = function(arg){
+                var _cb = {};
+                _cb.arg = arg;
+                _cb.success = function(rc, rcStr){
+                }
+                _cb.fail = function(rc, rcStr){
+                    console.log("NTL(for res): fail (" + rc + "/" + rcStr + ")");
+                }
+                return _cb;
+            };
+            _inst.allocSendStringResultHandler = function(gMsg){
+                var _h = {};
+                _h.gMsg = gMsg;
+                _h.getRequestSenderId = function(){
+                    return _h.gMsg.oa_app_user_id;
+                }
+                _h.success = function(result){
+                    var _r =    SimpleString.SimpleString_sendString_rspArg();
+                    _r.setInternalSuccess_(1);
+                    _r.setResult(result);
+                    GolgiNet.sendRes(_inst.sendStringResNtlCb(), gMsg.message_id, "sendString.SimpleString", _h.gMsg.oa_app_user_id, undefined, _r);
+                };
+                //
+                // Name = golgiException
+                // Type = GolgiException
+                //
+                _h.failWithGolgiException = function(err){
+                    var _r =    SimpleString.SimpleString_sendString_rspArg();
+                    _r.setInternalSuccess_(false);
+                    _r.setGolgiException(err);
+                    GolgiNet.sendRes(_inst.sendStringResNtlCb(), gMsg.message_id, "sendString.SimpleString", _h.gMsg.oa_app_user_id, undefined, _r);
+                };
+                //
+                // Name = sse
+                // Type = SimpleStringException
+                //
+                _h.failWithSse = function(err){
+                    var _r =    SimpleString.SimpleString_sendString_rspArg();
+                    _r.setInternalSuccess_(false);
+                    _r.setSse(err);
+                    GolgiNet.sendRes(_inst.sendStringResNtlCb(), gMsg.message_id, "sendString.SimpleString", _h.gMsg.oa_app_user_id, undefined, _r);
+                };
+                return _h;
+            };
+            _inst.sendStringReqGolgiCb = function(reqArg){
+                var _state = {};
+                var _userCb = reqArg.__cb;
+                _state.errArrived = function(errType, errText){
+                    var golgiException = GolgiApi.GolgiException();
+                    golgiException.setErrType(errType);
+                    golgiException.setErrText(errText);
+                    _userCb.failWithGolgiException(golgiException);
+                };
+                _state.resArrived = function(gMsg){
+                    var resArg = SimpleString.SimpleString_sendString_rspArg();
+                    var str = gMsg.payload;
+                    resArg.deserialise(GolgiLib.Payload(str));
+                    if(resArg.isCorrupt()){
+                        console.log("Corrupted res arrived for 'sendString'");
+                    }
+                    else if(resArg.getInternalSuccess_()){
+                        _userCb.success(resArg.getResult());
+                    }
+                    else if(resArg.golgiExceptionIsSet()){
+                        // Type: GolgiException
+                        // Name: golgiException
+                        _userCb.failWithGolgiException(resArg.getGolgiException());
+                    }
+                    else if(resArg.sseIsSet()){
+                        // Type: SimpleStringException
+                        // Name: sse
+                        _userCb.failWithSse(resArg.getSse());
+                    }
+                    else{
+                        console.log("Hmmm, noting set in RES for 'sendString'" + resArg.getInternalSuccess_());
+                    }
+                };
+                return _state;
+            };
+            _inst.sendStringReqNtlCb = function(arg){
+                var _cb = {};
+                _cb.arg = arg;
+                _cb.success = function(rc, rcStr){
+                }
+                _cb.fail = function(rc, rcStr){
+                    console.log("NTL: fail (" + rc + "/" + rcStr + ") sendString");
+                }
+                return _cb;
+            };
+            _inst.inboundSendString = function(ntlCb, gMsg){
+                var handler = _inst.allocSendStringResultHandler(gMsg);
+                var corruptArgs = false;
+                r = SimpleString.SimpleString_sendString_reqArg();
+                r.deserialise(GolgiLib.Payload(gMsg.payload));
+                corruptArgs = r.isCorrupt();
+                if(corruptArgs){
+                    // Generate a GolgiException and throw back
+                    gex = GolgiApi.GolgiException();
+                    gex.setErrType(12345);
+                    gex.setErrText("Garbled payload at recipient endpoint");
+                    handler.failWithGolgiException(gex);
+                }
+                else{
+                    // Pass each argument out to the register user func
+                    var userLand = _inst.userLandHash["sendString"];
+                    if(userLand == undefined){
+                        // Generate a GolgiException and throw back
+                        gex = GolgiApi.GolgiException();
+                        gex.setErrType(67890);
+                        gex.setErrText("No handler installed at recipient endpoint");
+                        handler.failWithGolgiException(gex);
+                    }
+                    else{
+                        userLand(handler, r.getArg());
+                    }
+                }
+                ntlCb(300, "OK");
+            };
+            _inst.sendString = function(cb, dst, options, arg){
+                var arg = SimpleString.SimpleString_sendString_reqArg();
+                arg.setArg(arg);
+                arg.__cb = cb;
+                GolgiNet.sendReq(_inst.sendStringReqGolgiCb(arg),
+                                 _inst.sendStringReqNtlCb(arg),
+                                 "sendString.SimpleString",
+                                 dst,
+                                 options,
+                                 arg);
+            };
+            GolgiNet.registerGolgiMessageHandler("sendString.SimpleString", _inst.inboundSendString);
+            return _inst;
+        };
+        SimpleString.SimpleStringSvc = _SimpleStringSvc();
+    },
+};
 var Golgi = {
 	init : function(){
 		var _inst = {};
@@ -1884,7 +2573,7 @@ var NTLConnImpl = function(_ntlConn){
 		console.log("Connecting to '" + host + "'/" + port);
 		
 		
-		ws = new WebSocket("ws://gws.o17g.com");
+		ws = new WebSocket("wss://gws.o17g.com");
 		
 		ws.onopen = function(){
 			console.log('Connected');

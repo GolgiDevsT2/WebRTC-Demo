@@ -56,6 +56,7 @@ var signalStack = [];
 
 var haveUserMedia = false;
 var GolgiConnected = false;
+var handlersRegistered = false;
 
 main();
 
@@ -492,10 +493,14 @@ function stopAll(){
     remoteVideo.style.opacity = 0;
 
     // stop the local stream
-    localStream.stop();
+    if(localStream != 'undefined' && localStream != null){
+        localStream.stop();
+    }
 
     // close the peer connection
-    pc.close();pc=null;
+    if(pc != null){
+        pc.close();pc=null;
+    }
 
     // null the remote stream
     remoteStream = null;
@@ -508,6 +513,9 @@ function stopAll(){
 
     // reset offer processed
     offerProcessed = false;
+
+    // reset Golgi's connected status
+    GolgiConnected = false;
 }
 
 // leave room function
@@ -527,8 +535,10 @@ function leave_room(){
             // call successfully ended
             console.log('Call successfully ended');
         },
-        failWithGolgiError : function(golgiException){
-            }
+        failWithGolgiException : function(golgiException){
+            console.log('Call failed to end correctly');
+            console.log(golgiException.getErrText());
+        }
     },
     destination,
     gto,
@@ -539,61 +549,67 @@ function leave_room(){
 function GolgiWebRTCInit(){
 
     if(GolgiConnected){
+        console.log('Golgi already connected returning..');
         return;
     }
 
-    // set a request handler for offer
-    GolgiWebRTC.GolgiWebRTCSvc.registerSendOfferHandler(function(resultHandler,offerRequest){
-        console.log('Received an offer');
+    if(!handlersRegistered){
+        console.log('Registering handlers');
 
-        // send success
-        resultHandler.success();
+        // set a request handler for offer
+        GolgiWebRTC.GolgiWebRTCSvc.registerSendOfferHandler(function(resultHandler,offerRequest){
+            console.log('Received an offer');
 
-        // add the offer to the start of the signaling stack
-        signalStack.unshift(offerRequest);
+            // send success
+            resultHandler.success();
 
-        // get the user media
-        doGetUserMedia();
-    });
-    // set a request handler for answer
-    GolgiWebRTC.GolgiWebRTCSvc.registerSendAnswerHandler(function(resultHandler,answerRequest){
-        console.log('Received answer');
+            // add the offer to the start of the signaling stack
+            signalStack.unshift(offerRequest);
 
-        // send success
-        resultHandler.success();
+            // get the user media
+            doGetUserMedia();
+        });
+        // set a request handler for answer
+        GolgiWebRTC.GolgiWebRTCSvc.registerSendAnswerHandler(function(resultHandler,answerRequest){
+            console.log('Received answer');
 
-        // set the remote
-        console.log(JSON.parse(answerRequest.getSdp()));
-        setRemote(JSON.parse(answerRequest.getSdp()));
-    });
-    // set a request handler for ice candidates
-    GolgiWebRTC.GolgiWebRTCSvc.registerSendIceCandidateHandler(function(resultHandler,iceCandidateRequest){
-        // send success
-        resultHandler.success();
+            // send success
+            resultHandler.success();
 
-        // check if the signal stack has been processed
-        if(!signalStackProcessed && !initiator){
-            // add the offer to the end of the signaling stack
-            signalStack.push(iceCandidateRequest);
-        }
-        else{
-            // signal stack has already been processed add manually
-            GolgiAddCandidate(iceCandidateRequest);
-        }
-    });
+            // set the remote
+            console.log(JSON.parse(answerRequest.getSdp()));
+            setRemote(JSON.parse(answerRequest.getSdp()));
+        });
+        // set a request handler for ice candidates
+        GolgiWebRTC.GolgiWebRTCSvc.registerSendIceCandidateHandler(function(resultHandler,iceCandidateRequest){
+            // send success
+            resultHandler.success();
 
-    // register a endCall callback
-    GolgiWebRTC.GolgiWebRTCSvc.registerEndCallHandler(function(resultHandler,roomId){
-        // send the success
-        resultHandler.success();
+            // check if the signal stack has been processed
+            if(!signalStackProcessed && !initiator){
+                // add the offer to the end of the signaling stack
+                signalStack.push(iceCandidateRequest);
+            }
+            else{
+                // signal stack has already been processed add manually
+                GolgiAddCandidate(iceCandidateRequest);
+            }
+        });
 
-        // flip buttons
-        flipButtons();
+        // register a endCall callback
+        GolgiWebRTC.GolgiWebRTCSvc.registerEndCallHandler(function(resultHandler,roomId){
+            // send the success
+            resultHandler.success();
 
-        // stop all
-        stopAll();
-    });
+            // flip buttons
+            flipButtons();
 
+            // stop all
+            stopAll();
+        });
+
+        handlersRegistered = true;
+    }
     // set the Golgi credentials
     setGolgiCredentials();
 }
