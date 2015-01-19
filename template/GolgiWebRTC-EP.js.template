@@ -143,7 +143,7 @@ function onIceCandidate(event){
                 console.log("IceCandidate successfully sent");
             },
             failWithGolgiException : function(golgiException){
-                console.log("IceCandidate failed: " + golgiException.getErrText());
+                console.log("Failed to send ice candidate: " + golgiException.getErrText());
             }
         },
         destination,
@@ -354,7 +354,7 @@ function setLocalAndSendMessage(sessionDescription){
                 console.log('Successfully sent offer');
             },
             failWithGolgiException : function(golgiException){
-                console.log('Failed to send offer');
+                console.log('Failed to send offer: ' + golgiException.getErrText());
             }
         },
         destination,
@@ -369,7 +369,7 @@ function setLocalAndSendMessage(sessionDescription){
                 console.log('Successfully sent answer');
             },
             failWithGolgiException : function(golgiException){
-                console.log('Failed to send answer');
+                console.log('Failed to send answer: ' + golgiException.getErrText());
             }
         },
         destination,
@@ -536,8 +536,7 @@ function leave_room(){
             console.log('Call successfully ended');
         },
         failWithGolgiException : function(golgiException){
-            console.log('Call failed to end correctly');
-            console.log(golgiException.getErrText());
+            console.log("Failed to send end call: " + golgiException.getErrText());
         }
     },
     destination,
