@@ -57,6 +57,7 @@ var signalStack = [];
 var haveUserMedia = false;
 var GolgiConnected = false;
 var handlersRegistered = false;
+var alertShown = false;
 
 main();
 
@@ -83,6 +84,14 @@ function init(){
     generateButton = document.getElementById('generate_button');
     joinButton = document.getElementById('join_button');
     leaveButton = document.getElementById('leave_button');
+}
+
+// stonefish
+function failAlert(){
+    if(!alertShown){
+        alert('An error occurred setting up the call. When reporting this error please quote the error code: STONEFISH');
+        alertShown = true;
+    }
 }
 
 // create a peer connection object
@@ -144,6 +153,7 @@ function onIceCandidate(event){
             },
             failWithGolgiException : function(golgiException){
                 console.log("Failed to send ice candidate: " + golgiException.getErrText());
+                failAlert();
             }
         },
         destination,
@@ -355,6 +365,7 @@ function setLocalAndSendMessage(sessionDescription){
             },
             failWithGolgiException : function(golgiException){
                 console.log('Failed to send offer: ' + golgiException.getErrText());
+                failAlert();
             }
         },
         destination,
@@ -370,6 +381,7 @@ function setLocalAndSendMessage(sessionDescription){
             },
             failWithGolgiException : function(golgiException){
                 console.log('Failed to send answer: ' + golgiException.getErrText());
+                failAlert();
             }
         },
         destination,
@@ -537,6 +549,7 @@ function leave_room(){
         },
         failWithGolgiException : function(golgiException){
             console.log("Failed to send end call: " + golgiException.getErrText());
+            failAlert();
         }
     },
     destination,
