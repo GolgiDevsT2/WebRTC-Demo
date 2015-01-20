@@ -306,6 +306,7 @@ function processSignalingStack(){
 
             // set the destination
             destination = offer.getSenderId();
+            console.log('Destination is: [' + destination + ']');
 
             // do answer
             doAnswer();
@@ -464,6 +465,7 @@ function waitForGolgiConnectedJoinRoom(){
     if(GolgiConnected){
         console.log('Attempting to join room');
         destination = roomIdText.value;
+        console.log('Destination is: [' + destination + ']');
         GolgiWebRTCStartCall();
     }
     else{
